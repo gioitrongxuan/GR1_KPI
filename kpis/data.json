@@ -1,0 +1,101 @@
+{
+    "tasks": [
+        {
+            "id": 1,
+            "name": "Task 1",
+            "precedings": [],
+            "estimate_effort": 2,
+            "require_assign": {}
+        },
+        {
+            "id": 2,
+            "name": "Task 2",
+            "precedings": [1],
+            "estimate_effort": 4,
+            "require_assign": {}
+        },
+        {
+            "id": 3,
+            "name": "Task 3",
+            "precedings": [1],
+            "estimate_effort": 4,
+            "require_assign": {}
+        },
+        {
+            "id": 4,
+            "name": "Task 4",
+            "precedings": [2],
+            "estimate_effort": 10,
+            "require_assign": {}
+        },
+        {
+            "id": 5,
+            "name": "Task 5",
+            "precedings": [3],
+            "estimate_effort": 2,
+            "require_assign": {}
+        },
+        {
+            "id": 6,
+            "name": "Task 6",
+            "precedings": [2, 3],
+            "estimate_effort": 5,
+            "require_assign": {}
+        },
+        {
+            "id": 7,
+            "name": "Task 7",
+            "precedings": [5, 6],
+            "estimate_effort": 5,
+            "require_assign": {}
+        },
+        {
+            "id": 8,
+            "name": "Task 8",
+            "precedings": [3],
+            "estimate_effort": 4,
+            "require_assign": {}
+        }
+    ],
+    "employees": [
+        {
+            "id": 1,
+            "name": "Emp A",
+            "cost_per_hour": 12,
+            "qualities": {
+                "degree": 4,
+                "year_of_exp": 5
+            },
+            "time":8
+        },
+        {
+            "id": 2,
+            "name": "Emp B",
+            "cost_per_hour": 11,
+            "qualities": {
+                "degree": 3,
+                "year_of_exp": 4
+            },
+            "time":8
+        },
+        {
+            "id": 3,
+            "name": "Emp C",
+            "cost_per_hour": 11.5,
+            "qualities": {
+                "degree": 2,
+                "year_of_exp": 2
+            },
+            "time":8
+        },
+        {
+            "id": 4,
+            "name": "Emp D",
+            "cost_per_hour": 13,
+            "qualities": {
+                "degree": 2,
+                "year_of_exp": 2            },
+                "time":8
+        }
+    ]
+}
