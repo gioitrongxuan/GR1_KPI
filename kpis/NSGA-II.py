@@ -20,9 +20,13 @@ def evaluate(individual):
     """Hàm đánh giá cá thể."""
     total_time = 0
     total_cost = 0
+    employee_load = [0] * NUM_EMPLOYEES  # Tải công việc của từng nhân viên
+
     for i, employee in enumerate(individual):
         total_time += project_times[i] * employee_productivity[employee]
-        total_cost += project_costs[i]
+        employee_load[employee] += project_costs[i]
+
+    total_cost = sum(employee_load)
     return total_time, total_cost
 
 def mutate(individual, indpb):
@@ -38,16 +42,16 @@ toolbox.register("individual", tools.initRepeat, creator.Individual, toolbox.att
 toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
 toolbox.register("mate", tools.cxUniform, indpb=0.5)
-toolbox.register("mutate", mutate, indpb=0.1)
+toolbox.register("mutate", mutate, indpb=0.3)  # Tăng xác suất đột biến
 toolbox.register("select", tools.selNSGA2)
 toolbox.register("evaluate", evaluate)
 
 def main():
     random.seed(42)
-    population = toolbox.population(n=100)
-    ngen = 50  # Số thế hệ
+    population = toolbox.population(n=300)  # Tăng số lượng quần thể
+    ngen = 100  # Tăng số thế hệ
     cxpb = 0.7  # Xác suất lai ghép
-    mutpb = 0.2  # Xác suất đột biến
+    mutpb = 0.3  # Tăng xác suất đột biến
 
     # Khởi tạo quần thể
     fits = list(map(toolbox.evaluate, population))
