@@ -1,94 +1,136 @@
 import random
-from deap import base, creator, tools, algorithms
+import numpy as np
 
-# Giả sử chúng ta có 5 dự án và 3 nhân viên
-NUM_PROJECTS = 5
-NUM_EMPLOYEES = 3
+# Dữ liệu thời gian công việc và độ phức tạp
+work_times = [4, 2, 3, 6, 5, 1, 8, 7, 3, 4]
+work_complexities = [5, 3, 4, 7, 6, 2, 8, 7, 3, 4]
+num_workers = 5
 
-# Thời gian và chi phí cho mỗi dự án
-project_times = [10, 20, 30, 40, 50]
-project_costs = [100, 200, 300, 400, 500]
+# Năng lực của các nhân viên
+worker_capabilities = [6, 5, 8, 7, 4]
 
-# Năng suất làm việc của mỗi nhân viên (hệ số giảm thời gian hoàn thành dự án)
-employee_productivity = [0.9, 0.8, 0.85]
+# Khởi tạo quần thể
+def init_population(pop_size, num_jobs, num_workers):
+    return [np.random.randint(0, num_workers, num_jobs).tolist() for _ in range(pop_size)]
 
-# Tạo kiểu cá thể (individual) và quần thể (population)
-creator.create("FitnessMulti", base.Fitness, weights=(-1.0, -1.0))
-creator.create("Individual", list, fitness=creator.FitnessMulti)
-
+# Hàm đánh giá cho từng cá thể
 def evaluate(individual):
-    """Hàm đánh giá cá thể."""
-    total_time = 0
-    total_cost = 0
-    employee_load = [0] * NUM_EMPLOYEES  # Tải công việc của từng nhân viên
+    workloads = [0] * num_workers
+    suitability_score = 0
+    for i, worker in enumerate(individual):
+        workloads[worker] += work_times[i]
+        suitability_score += abs(worker_capabilities[worker] - work_complexities[i])
+    
+    time_completed = sum(workloads)
+    workload_balance = max(workloads) - min(workloads)
+    return [time_completed, workload_balance, suitability_score]
 
-    for i, employee in enumerate(individual):
-        total_time += project_times[i] * employee_productivity[employee]
-        employee_load[employee] += project_costs[i]
+# Hàm không trội và khoảng cách đông đúc
+def non_dominated_sorting(pop):
+    fronts = [[]]
+    domination_count = [0] * len(pop)
+    dominated_solutions = [[] for _ in range(len(pop))]
+    rank = [0] * len(pop)
+    
+    for p in range(len(pop)):
+        for q in range(len(pop)):
+            if all(p_f <= q_f for p_f, q_f in zip(pop[p][1], pop[q][1])) and any(p_f < q_f for p_f, q_f in zip(pop[p][1], pop[q][1])):
+                dominated_solutions[p].append(q)
+            elif all(q_f <= p_f for q_f, p_f in zip(pop[q][1], pop[p][1])) and any(q_f < p_f for q_f, p_f in zip(pop[q][1], pop[p][1])):
+                domination_count[p] += 1
+        if domination_count[p] == 0:
+            rank[p] = 0
+            fronts[0].append(p)
+    
+    i = 0
+    while fronts[i]:
+        next_front = []
+        for p in fronts[i]:
+            for q in dominated_solutions[p]:
+                domination_count[q] -= 1
+                if domination_count[q] == 0:
+                    rank[q] = i + 1
+                    next_front.append(q)
+        i += 1
+        fronts.append(next_front)
+    
+    fronts.pop()
+    return fronts
 
-    total_cost = sum(employee_load)
-    return total_time, total_cost
+def crowding_distance(front, pop):
+    distance = [0] * len(front)
+    for m in range(3):  # 3 mục tiêu
+        front = sorted(front, key=lambda x: pop[x][1][m])
+        distance[0] = distance[-1] = float('inf')
+        for i in range(1, len(front) - 1):
+            distance[i] += (pop[front[i + 1]][1][m] - pop[front[i - 1]][1][m]) / (max(pop[front])[1][m] - min(pop[front])[1][m])
+    return distance
 
-def mutate(individual, indpb):
-    """Hàm đột biến cá thể."""
-    for i in range(len(individual)):
-        if random.random() < indpb:
-            individual[i] = random.randint(0, NUM_EMPLOYEES - 1)
-    return individual,
+# Chọn lọc NSGA-II
+def selection(pop, fronts, pop_size):
+    new_pop = []
+    for front in fronts:
+        if len(new_pop) + len(front) > pop_size:
+            distance = crowding_distance(front, pop)
+            front = sorted(front, key=lambda x: distance[front.index(x)], reverse=True)
+            new_pop.extend(front[:pop_size - len(new_pop)])
+            break
+        new_pop.extend(front)
+    return new_pop
 
-toolbox = base.Toolbox()
-toolbox.register("attr_int", random.randint, 0, NUM_EMPLOYEES - 1)
-toolbox.register("individual", tools.initRepeat, creator.Individual, toolbox.attr_int, n=NUM_PROJECTS)
-toolbox.register("population", tools.initRepeat, list, toolbox.individual)
+# Lai ghép và Đột biến
+def crossover_and_mutate(parents, num_jobs, num_workers, crossover_prob=0.7, mutation_prob=0.2):
+    offspring = []
+    for i in range(0, len(parents), 2):
+        parent1, parent2 = parents[i], parents[i + 1]
+        if random.random() < crossover_prob:
+            point = random.randint(1, num_jobs - 1)
+            child1 = parent1[:point] + parent2[point:]
+            child2 = parent2[:point] + parent1[point:]
+        else:
+            child1, child2 = parent1, parent2
+        
+        if random.random() < mutation_prob:
+            child1[random.randint(0, num_jobs - 1)] = random.randint(0, num_workers - 1)
+        if random.random() < mutation_prob:
+            child2[random.randint(0, num_jobs - 1)] = random.randint(0, num_workers - 1)
+        
+        offspring.append(child1)
+        offspring.append(child2)
+    return offspring
 
-toolbox.register("mate", tools.cxUniform, indpb=0.5)
-toolbox.register("mutate", mutate, indpb=0.3)  # Tăng xác suất đột biến
-toolbox.register("select", tools.selNSGA2)
-toolbox.register("evaluate", evaluate)
+# Khởi tạo thông số
+pop_size = 100
+num_jobs = len(work_times)
+num_generations = 50
 
-def main():
-    random.seed(42)
-    population = toolbox.population(n=300)  # Tăng số lượng quần thể
-    ngen = 100  # Tăng số thế hệ
-    cxpb = 0.7  # Xác suất lai ghép
-    mutpb = 0.3  # Tăng xác suất đột biến
+# Khởi tạo quần thể ban đầu
+population = init_population(pop_size, num_jobs, num_workers)
+evaluated_pop = [(ind, evaluate(ind)) for ind in population]
 
-    # Khởi tạo quần thể
-    fits = list(map(toolbox.evaluate, population))
-    for fit, ind in zip(fits, population):
-        ind.fitness.values = fit
+# Vòng lặp tiến hóa
+for gen in range(num_generations):
+    fronts = non_dominated_sorting(evaluated_pop)
+    selected_indices = selection(evaluated_pop, fronts, pop_size)
+    parents = [evaluated_pop[i][0] for i in selected_indices]
+    offspring = crossover_and_mutate(parents, num_jobs, num_workers)
+    evaluated_pop = [(ind, evaluate(ind)) for ind in offspring]
 
-    # Lặp qua các thế hệ
-    for gen in range(ngen):
-        offspring = toolbox.select(population, len(population))
-        offspring = list(map(toolbox.clone, offspring))
+# Kết quả
+best_individual = sorted(evaluated_pop, key=lambda x: x[1])[0]
+print("Best individual:", best_individual[0])
+print("Best individual fitness:", best_individual[1])
 
-        # Áp dụng lai ghép và đột biến
-        for child1, child2 in zip(offspring[::2], offspring[1::2]):
-            if random.random() < cxpb:
-                toolbox.mate(child1, child2)
-                del child1.fitness.values
-                del child2.fitness.values
+# Phân tích kết quả
+best_workloads = [0] * num_workers
+for i, worker in enumerate(best_individual[0]):
+    best_workloads[worker] += work_times[i]
 
-        for mutant in offspring:
-            if random.random() < mutpb:
-                toolbox.mutate(mutant)
-                del mutant.fitness.values
+print("\nBest workloads per worker:")
+for i in range(num_workers):
+    print(f"Worker {i + 1}: {best_workloads[i]} hours")
 
-        # Đánh giá lại các cá thể đã thay đổi
-        invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
-        fits = map(toolbox.evaluate, invalid_ind)
-        for fit, ind in zip(fits, invalid_ind):
-            ind.fitness.values = fit
-
-        # Tạo quần thể mới
-        population = toolbox.select(population + offspring, len(population))
-
-    return population
-
-if __name__ == "__main__":
-    pop = main()
-    # Trích xuất các giải pháp Pareto tối ưu
-    pareto_front = tools.sortNondominated(pop, len(pop), first_front_only=True)[0]
-    for ind in pareto_front:
-        print(f"Solution: {ind}, Fitness: {ind.fitness.values}")
+# In chi tiết phân công công việc cho nhân viên
+for i in range(num_workers):
+    worker_tasks = [j + 1 for j in range(len(best_individual[0])) if best_individual[0][j] == i]
+    print(f"Worker {i + 1} tasks: {worker_tasks}")
